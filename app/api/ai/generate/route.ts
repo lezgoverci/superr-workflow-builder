@@ -325,7 +325,7 @@ Example: If user says "connect node A to node B", output:
     }
 
     const result = streamText({
-      model: "openai/gpt-5.1-instant",
+      model: (process.env.AI_GENERATION_MODEL as any) || "openai/gpt-5.1-instant",
       system: getSystemPrompt(),
       prompt: userPrompt,
     });
