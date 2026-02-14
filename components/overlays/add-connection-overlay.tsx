@@ -260,6 +260,15 @@ export function ConfigureConnectionOverlay({
   } | null>(null);
   const [name, setName] = useState("");
   const [config, setConfig] = useState<Record<string, string>>({});
+  const plugin = getIntegration(type);
+  const formFields = plugin?.formFields;
+  const hasCredentialFields =
+    type === "database" || (formFields?.length ?? 0) > 0;
+  const supportsConnectionTest =
+    type === "database" || Boolean(plugin?.testConfig);
+  const connectionDescription = hasCredentialFields
+    ? "Enter your credentials"
+    : "No credentials are required for this connection";
 
   const updateConfig = (key: string, value: string) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
@@ -286,8 +295,13 @@ export function ConfigureConnectionOverlay({
 
   const handleSave = async () => {
     const hasConfig = Object.values(config).some((v) => v && v.length > 0);
-    if (!hasConfig) {
+    if (hasCredentialFields && !hasConfig) {
       toast.error("Please enter credentials");
+      return;
+    }
+
+    if (!supportsConnectionTest) {
+      await doSave();
       return;
     }
 
@@ -329,8 +343,13 @@ export function ConfigureConnectionOverlay({
   };
 
   const handleTest = async () => {
+    if (!supportsConnectionTest) {
+      toast.error("This connection type does not support testing");
+      return;
+    }
+
     const hasConfig = Object.values(config).some((v) => v && v.length > 0);
-    if (!hasConfig) {
+    if (hasCredentialFields && !hasConfig) {
       toast.error("Please enter credentials first");
       return;
     }
@@ -354,10 +373,6 @@ export function ConfigureConnectionOverlay({
       setTesting(false);
     }
   };
-
-  // Get plugin form fields
-  const plugin = getIntegration(type);
-  const formFields = plugin?.formFields;
 
   // Render config fields
   const renderConfigFields = () => {
@@ -429,20 +444,24 @@ export function ConfigureConnectionOverlay({
   return (
     <Overlay
       actions={[
-        {
-          label: "Test",
-          variant: "outline",
-          onClick: handleTest,
-          loading: testing,
-          disabled: saving,
-        },
+        ...(supportsConnectionTest
+          ? [
+              {
+                label: "Test",
+                variant: "outline" as const,
+                onClick: handleTest,
+                loading: testing,
+                disabled: saving,
+              },
+            ]
+          : []),
         { label: "Create", onClick: handleSave, loading: saving },
       ]}
       overlayId={overlayId}
       title={`Add ${getLabel(type)}`}
     >
       <p className="-mt-2 mb-4 text-muted-foreground text-sm">
-        Enter your credentials
+        {connectionDescription}
       </p>
 
       <div className="space-y-4">

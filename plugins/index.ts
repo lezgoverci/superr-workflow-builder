@@ -16,6 +16,7 @@
 
 import "./ai-agent";
 import "./ai-gateway";
+import "./bash";
 import "./blob";
 import "./clerk";
 import "./fal";
