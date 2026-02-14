@@ -14,6 +14,7 @@
  * 2. Run: pnpm discover-plugins (or it runs automatically on build)
  */
 
+import "./ai-agent";
 import "./ai-gateway";
 import "./blob";
 import "./clerk";
