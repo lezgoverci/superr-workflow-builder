@@ -60,7 +60,7 @@ const containerVariants: Variants = {
 /**
  * Variants for drawer container
  */
-const drawerContainerVariants: Variants = {
+const _drawerContainerVariants: Variants = {
   hidden: {
     y: "100%",
     opacity: 0.5,
@@ -88,8 +88,12 @@ function getOverlayXPosition(
   isCurrent: boolean,
   isPrevious: boolean
 ): "0%" | "-35%" | "100%" {
-  if (isCurrent) return "0%";
-  if (isPrevious) return "-35%";
+  if (isCurrent) {
+    return "0%";
+  }
+  if (isPrevious) {
+    return "-35%";
+  }
   return "100%";
 }
 
@@ -152,6 +156,7 @@ function DesktopOverlayContainer() {
 
   // Measure content height when it changes, reset on fresh open
   useLayoutEffect(() => {
+    const stackLength = stack.length;
     const isFreshOpen = isOpen && !wasOpenRef.current;
     wasOpenRef.current = isOpen;
 
@@ -160,16 +165,16 @@ function DesktopOverlayContainer() {
       setMinHeight(0);
     }
 
-    if (contentRef.current) {
+    if (stackLength > 0 && contentRef.current) {
       const height = contentRef.current.offsetHeight;
       if (height > 0) {
         setMinHeight(height);
       }
     }
-  }, [stack, isOpen]);
+  }, [stack.length, isOpen]);
 
   // Use live stack for options checks (only when open)
-  const currentItem = stack[stack.length - 1];
+  const currentItem = stack.at(-1);
   const springTransition = shouldReduceMotion ? { duration: 0.01 } : iosSpring;
   const isPushing = direction === 1;
 
@@ -312,6 +317,7 @@ function MobileOverlayContainer() {
 
   // Measure content height when it changes, reset on fresh open
   useLayoutEffect(() => {
+    const stackLength = stack.length;
     const isFreshOpen = isOpen && !wasOpenRef.current;
     wasOpenRef.current = isOpen;
 
@@ -320,16 +326,16 @@ function MobileOverlayContainer() {
       setMinHeight(0);
     }
 
-    if (contentRef.current) {
+    if (stackLength > 0 && contentRef.current) {
       const height = contentRef.current.offsetHeight;
       if (height > 0) {
         setMinHeight(height);
       }
     }
-  }, [stack, isOpen]);
+  }, [stack.length, isOpen]);
 
   // Use live stack for options checks (only when open)
-  const currentItem = stack[stack.length - 1];
+  const currentItem = stack.at(-1);
   const renderCurrentItem = renderStack[currentIndex];
   const springTransition = shouldReduceMotion ? { duration: 0.01 } : iosSpring;
   const isPushing = direction === 1;
