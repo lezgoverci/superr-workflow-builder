@@ -35,9 +35,10 @@ const aiAgentPlugin: IntegrationPlugin = {
   },
 
   dependencies: {
-    ai: "^5.0.86",
-    "bash-tool": "file:/Users/cruzr/tools/vercel/bash-tool",
-    "just-bash": "file:/Users/cruzr/tools/vercel/just-bash",
+    ai: "^6.0.0",
+    "bash-tool": "^1.3.14",
+    "just-bash": "^2.9.8",
+    "@vercel/sandbox": "^1.5.0",
     zod: "^4.1.12",
   },
 
@@ -80,6 +81,24 @@ const aiAgentPlugin: IntegrationPlugin = {
             { value: "meta/llama-4-scout", label: "Llama 4 Scout" },
             { value: "meta/llama-4-maverick", label: "Llama 4 Maverick" },
           ],
+        },
+        {
+          key: "sandboxType",
+          label: "Sandbox",
+          type: "select",
+          defaultValue: "vercel",
+          options: [
+            { value: "vercel", label: "Vercel Sandbox (full)" },
+            { value: "just-bash", label: "just-bash (simulated)" },
+          ],
+        },
+        {
+          key: "vercelSandboxToken",
+          label: "Vercel Sandbox Token",
+          type: "text",
+          placeholder:
+            "OIDC token recommended. For access tokens, set VERCEL_TEAM_ID and VERCEL_PROJECT_ID in server env.",
+          showWhen: { field: "sandboxType", equals: "vercel" },
         },
         {
           key: "agentPrompt",
