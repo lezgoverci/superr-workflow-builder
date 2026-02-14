@@ -324,8 +324,13 @@ Example: If user says "connect node A to node B", output:
 {"op": "addEdge", "edge": {"id": "e-new", "source": "A", "target": "B", "type": "default"}}`;
     }
 
+    const configuredModel = process.env.AI_GENERATION_MODEL?.trim();
+
     const result = streamText({
-      model: (process.env.AI_GENERATION_MODEL as any) || "openai/gpt-5.1-instant",
+      model:
+        configuredModel && configuredModel.length > 0
+          ? configuredModel
+          : "openai/gpt-5.1-instant",
       system: getSystemPrompt(),
       prompt: userPrompt,
     });
