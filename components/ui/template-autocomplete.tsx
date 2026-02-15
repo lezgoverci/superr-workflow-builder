@@ -137,6 +137,14 @@ const getCommonFields = (node: WorkflowNode) => {
     ];
   }
 
+  if (actionType === "Run Workflow") {
+    return [
+      { field: "workflowId", description: "Child workflow ID" },
+      { field: "executionId", description: "Child execution ID" },
+      { field: "output", description: "Child workflow final output" },
+    ];
+  }
+
   // AI Gateway generate-text has dynamic output based on format/schema
   if (isActionType(actionType, "Generate Text", "ai-gateway/generate-text")) {
     const aiFormat = node.data.config?.aiFormat as string | undefined;
@@ -393,4 +401,3 @@ export function TemplateAutocomplete({
   // Use portal to render at document root to avoid clipping issues
   return createPortal(menuContent, document.body);
 }
-

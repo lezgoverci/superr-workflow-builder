@@ -9,6 +9,7 @@ import {
   Database,
   EyeOff,
   GitBranch,
+  Play,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -75,6 +76,7 @@ const SYSTEM_ACTION_LABELS: Record<string, string> = {
   "HTTP Request": "System",
   "Database Query": "Database",
   Condition: "Condition",
+  "Run Workflow": "System",
   "Execute Code": "System",
 };
 
@@ -131,6 +133,8 @@ const getProviderLogo = (actionType: string) => {
       return <Code className="size-12 text-green-300" strokeWidth={1.5} />;
     case "Condition":
       return <GitBranch className="size-12 text-pink-300" strokeWidth={1.5} />;
+    case "Run Workflow":
+      return <Play className="size-12 text-emerald-300" strokeWidth={1.5} />;
     default:
       // Not a system action, continue to check plugin registry
       break;

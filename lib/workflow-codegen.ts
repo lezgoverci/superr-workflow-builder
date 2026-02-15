@@ -404,6 +404,28 @@ export function generateWorkflowCode(
     ];
   }
 
+  function generateRunWorkflowActionCode(
+    node: WorkflowNode,
+    indent: string,
+    varName: string
+  ): string[] {
+    const stepInfo = getStepInfo("Run Workflow");
+    imports.add(
+      `import { ${stepInfo.functionName} } from '${stepInfo.importPath}';`
+    );
+
+    const config = node.data.config || {};
+    const targetWorkflowId = (config.targetWorkflowId as string) || "";
+    const workflowInput = (config.workflowInput as string) || "{}";
+
+    return [
+      `${indent}const ${varName} = await ${stepInfo.functionName}({`,
+      `${indent}  targetWorkflowId: ${formatTemplateValue(targetWorkflowId)},`,
+      `${indent}  workflowInput: ${formatTemplateValue(workflowInput)},`,
+      `${indent}});`,
+    ];
+  }
+
   // Helper to process AI schema and convert to TypeScript literal
   function processAiSchema(aiSchema: string | undefined): string | null {
     if (!aiSchema) {
@@ -805,6 +827,10 @@ export function generateWorkflowCode(
     } else if (actionType === "HTTP Request") {
       lines.push(
         ...wrapActionCall(generateHTTPActionCode(node, indent, varName))
+      );
+    } else if (actionType === "Run Workflow") {
+      lines.push(
+        ...wrapActionCall(generateRunWorkflowActionCode(node, indent, varName))
       );
     } else {
       // Try to find the action in the plugin registry

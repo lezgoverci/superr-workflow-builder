@@ -27,11 +27,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { aiGatewayStatusAtom } from "@/lib/ai-gateway/state";
+import { api } from "@/lib/api-client";
 import {
   integrationsAtom,
   integrationsVersionAtom,
 } from "@/lib/integrations-store";
 import type { IntegrationType } from "@/lib/types/integration";
+import { currentWorkflowIdAtom } from "@/lib/workflow-store";
 import {
   findActionById,
   getActionsByCategory,
@@ -219,6 +221,129 @@ function ConditionFields({
   );
 }
 
+function RunWorkflowFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  const currentWorkflowId = useAtomValue(currentWorkflowIdAtom);
+  const [workflows, setWorkflows] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadWorkflows = async () => {
+      setIsLoadingWorkflows(true);
+      try {
+        const allWorkflows = await api.workflow.getAll();
+        if (!active) {
+          return;
+        }
+
+        const selectableWorkflows = allWorkflows
+          .filter((workflow) => workflow.id !== currentWorkflowId)
+          .map((workflow) => ({
+            id: workflow.id,
+            name: workflow.name || "Untitled Workflow",
+          }));
+
+        setWorkflows(selectableWorkflows);
+      } catch (error) {
+        console.error(
+          "Failed to load workflows for Run Workflow action:",
+          error
+        );
+        if (active) {
+          setWorkflows([]);
+        }
+      } finally {
+        if (active) {
+          setIsLoadingWorkflows(false);
+        }
+      }
+    };
+
+    loadWorkflows();
+    return () => {
+      active = false;
+    };
+  }, [currentWorkflowId]);
+
+  const workflowOptions = (() => {
+    if (isLoadingWorkflows) {
+      return (
+        <SelectItem disabled value="__loading">
+          Loading workflows...
+        </SelectItem>
+      );
+    }
+
+    if (workflows.length > 0) {
+      return workflows.map((workflow) => (
+        <SelectItem key={workflow.id} value={workflow.id}>
+          {workflow.name}
+        </SelectItem>
+      ));
+    }
+
+    return (
+      <SelectItem disabled value="__empty">
+        No workflows available
+      </SelectItem>
+    );
+  })();
+
+  return (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="targetWorkflowId">Target Workflow</Label>
+        <Select
+          disabled={disabled || isLoadingWorkflows}
+          onValueChange={(value) => onUpdateConfig("targetWorkflowId", value)}
+          value={(config?.targetWorkflowId as string) || undefined}
+        >
+          <SelectTrigger className="w-full" id="targetWorkflowId">
+            <SelectValue placeholder="Select workflow" />
+          </SelectTrigger>
+          <SelectContent>{workflowOptions}</SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="workflowInput">Workflow Input (JSON)</Label>
+        <div className="overflow-hidden rounded-md border">
+          <CodeEditor
+            defaultLanguage="json"
+            height="130px"
+            onChange={(value) => onUpdateConfig("workflowInput", value || "{}")}
+            options={{
+              minimap: { enabled: false },
+              lineNumbers: "on",
+              scrollBeyondLastLine: false,
+              fontSize: 12,
+              readOnly: disabled,
+              wordWrap: "off",
+            }}
+            value={(config?.workflowInput as string) || "{}"}
+          />
+        </div>
+        <p className="text-muted-foreground text-xs">
+          Pass JSON input to the target workflow. Template variables are
+          supported inside string values. This node waits for the child workflow
+          to complete.
+        </p>
+      </div>
+    </>
+  );
+}
+
 // System action fields wrapper - extracts conditional rendering to reduce complexity
 function SystemActionFields({
   actionType,
@@ -256,6 +381,14 @@ function SystemActionFields({
           onUpdateConfig={onUpdateConfig}
         />
       );
+    case "Run Workflow":
+      return (
+        <RunWorkflowFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
     default:
       return null;
   }
@@ -265,6 +398,7 @@ function SystemActionFields({
 const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
   { id: "HTTP Request", label: "HTTP Request" },
   { id: "Database Query", label: "Database Query" },
+  { id: "Run Workflow", label: "Run Workflow" },
   { id: "Condition", label: "Condition" },
 ];
 

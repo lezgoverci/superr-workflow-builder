@@ -5,11 +5,13 @@ import { findActionById } from "@/plugins";
 import conditionTemplate from "./codegen-templates/condition";
 import databaseQueryTemplate from "./codegen-templates/database-query";
 import httpRequestTemplate from "./codegen-templates/http-request";
+import runWorkflowTemplate from "./codegen-templates/run-workflow";
 
 // System actions that don't have plugins
 const SYSTEM_CODEGEN_TEMPLATES: Record<string, string> = {
   "Database Query": databaseQueryTemplate,
   "HTTP Request": httpRequestTemplate,
+  "Run Workflow": runWorkflowTemplate,
   Condition: conditionTemplate,
 };
 
@@ -337,6 +339,13 @@ export function generateWorkflowSDKCode(
     ];
   }
 
+  function buildRunWorkflowParams(config: Record<string, unknown>): string[] {
+    return [
+      `targetWorkflowId: \`${convertTemplateToJS((config.targetWorkflowId as string) || "")}\``,
+      `workflowInput: \`${convertTemplateToJS((config.workflowInput as string) || "{}")}\``,
+    ];
+  }
+
   function buildFirecrawlParams(
     actionType: string,
     config: Record<string, unknown>
@@ -483,6 +492,7 @@ export function generateWorkflowSDKCode(
       "Generate Image": () => buildAIImageParams(config),
       "Database Query": () => buildDatabaseParams(config),
       "HTTP Request": () => buildHttpParams(config),
+      "Run Workflow": () => buildRunWorkflowParams(config),
       Condition: () => buildConditionParams(config),
       Scrape: () => buildFirecrawlParams(actionType, config),
       Search: () => buildFirecrawlParams(actionType, config),

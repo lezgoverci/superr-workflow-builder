@@ -54,6 +54,12 @@ const SYSTEM_ACTIONS: ActionType[] = [
     category: "System",
   },
   {
+    id: "Run Workflow",
+    label: "Run Workflow",
+    description: "Run another workflow and wait for its result",
+    category: "System",
+  },
+  {
     id: "Condition",
     label: "Condition",
     description: "Branch based on a condition",

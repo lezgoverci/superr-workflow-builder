@@ -298,6 +298,10 @@ const SYSTEM_STEP_INFO: Record<
     functionName: "httpRequestStep",
     importPath: "./steps/http-request-step",
   },
+  "Run Workflow": {
+    functionName: "runWorkflowStep",
+    importPath: "./steps/run-workflow-step",
+  },
   Condition: {
     functionName: "conditionStep",
     importPath: "./steps/condition-step",

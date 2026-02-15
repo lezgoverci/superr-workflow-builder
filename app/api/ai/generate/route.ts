@@ -191,6 +191,7 @@ Trigger types:
 System action types (built-in):
 - Database Query: {"actionType": "Database Query", "dbQuery": "SELECT * FROM table", "dbTable": "table"}
 - HTTP Request: {"actionType": "HTTP Request", "httpMethod": "POST", "endpoint": "https://api.example.com", "httpHeaders": "{}", "httpBody": "{}"}
+- Run Workflow: {"actionType": "Run Workflow", "targetWorkflowId": "workflow-id", "workflowInput": '{"key":"value"}'}
 - Condition: {"actionType": "Condition", "condition": "{{@nodeId:Label.field}} === 'value'"}
 
 Plugin action types (from integrations):
