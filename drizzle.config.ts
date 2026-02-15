@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 import type { Config } from "drizzle-kit";
-import { resolveDatabaseUrlWithFallback } from "./lib/db/resolve-database-url";
+import { resolveMigrationDatabaseUrlWithFallback } from "./lib/db/resolve-database-url";
 
 config({ path: ".env.local" });
 
@@ -9,6 +9,6 @@ export default {
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: resolveDatabaseUrlWithFallback(),
+    url: resolveMigrationDatabaseUrlWithFallback(),
   },
 } satisfies Config;

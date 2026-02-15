@@ -1,20 +1,40 @@
 import { spawnSync } from "node:child_process";
 import {
-  databaseUrlEnvKeys,
-  resolveDatabaseUrl,
+  migrationDatabaseUrlEnvKeys,
+  resolveMigrationDatabaseUrlSource,
 } from "../lib/db/resolve-database-url";
 
 const VERCEL_ENV = process.env.VERCEL_ENV;
 
+function getDatabaseHost(databaseUrl: string): string | undefined {
+  try {
+    return new URL(databaseUrl).hostname;
+  } catch {
+    return;
+  }
+}
+
 if (VERCEL_ENV === "production") {
   console.log("Running database migrations for production...");
 
-  const databaseUrl = resolveDatabaseUrl();
-  if (!databaseUrl) {
+  const databaseUrlSource = resolveMigrationDatabaseUrlSource();
+  if (!databaseUrlSource) {
     console.error(
-      `Migration failed: no database URL found. Set one of: ${databaseUrlEnvKeys.join(", ")}`
+      `Migration failed: no database URL found. Set one of: ${migrationDatabaseUrlEnvKeys.join(", ")}`
     );
     process.exit(1);
+  }
+
+  const databaseUrl = databaseUrlSource.value;
+  const databaseHost = getDatabaseHost(databaseUrl);
+  console.log(
+    `Using database URL from ${databaseUrlSource.key}${databaseHost ? ` (host: ${databaseHost})` : ""}`
+  );
+
+  if (databaseHost?.includes("pooler.supabase.com")) {
+    console.warn(
+      "Detected Supabase pooler URL. If migrations fail, set DATABASE_MIGRATION_URL (or DIRECT_URL) to the direct database URL on port 5432."
+    );
   }
 
   try {
