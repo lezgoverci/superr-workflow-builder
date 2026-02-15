@@ -33,6 +33,7 @@ import {
   selectedExecutionIdAtom,
   triggerExecuteAtom,
   updateNodeDataAtom,
+  updateNodeStatusesAtom,
   type WorkflowNode,
   type WorkflowVisibility,
   workflowNotFoundAtom,
@@ -117,6 +118,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
   const setCurrentWorkflowId = useSetAtom(currentWorkflowIdAtom);
   const setCurrentWorkflowName = useSetAtom(currentWorkflowNameAtom);
   const updateNodeData = useSetAtom(updateNodeDataAtom);
+  const updateNodeStatuses = useSetAtom(updateNodeStatusesAtom);
   const setHasUnsavedChanges = useSetAtom(hasUnsavedChangesAtom);
   const [workflowNotFound, setWorkflowNotFound] = useAtom(workflowNotFoundAtom);
   const setTriggerExecute = useSetAtom(triggerExecuteAtom);
@@ -606,9 +608,9 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
     // If no execution is selected or it's the currently running one, don't poll
     if (!selectedExecutionId) {
       // Reset all node statuses when no execution is selected
-      for (const node of nodesRef.current) {
-        updateNodeData({ id: node.id, data: { status: "idle" } });
-      }
+      updateNodeStatuses(
+        nodesRef.current.map((node) => ({ nodeId: node.id, status: "idle" }))
+      );
       return;
     }
 
@@ -619,18 +621,16 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
           await api.workflow.getExecutionStatus(selectedExecutionId);
 
         // Update node statuses based on the execution logs
-        for (const nodeStatus of statusData.nodeStatuses) {
-          updateNodeData({
-            id: nodeStatus.nodeId,
-            data: {
-              status: nodeStatus.status as
-                | "idle"
-                | "running"
-                | "success"
-                | "error",
-            },
-          });
-        }
+        updateNodeStatuses(
+          statusData.nodeStatuses.map((nodeStatus) => ({
+            nodeId: nodeStatus.nodeId,
+            status: nodeStatus.status as
+              | "idle"
+              | "running"
+              | "success"
+              | "error",
+          }))
+        );
 
         // Stop polling if execution is complete
         if (
@@ -661,7 +661,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
         selectedExecutionPollingIntervalRef.current = null;
       }
     };
-  }, [selectedExecutionId, updateNodeData]);
+  }, [selectedExecutionId, updateNodeStatuses]);
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden">

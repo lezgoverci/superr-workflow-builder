@@ -21,6 +21,24 @@ export type WorkflowEdge = Edge;
 // Workflow visibility type
 export type WorkflowVisibility = "private" | "public";
 
+type HistoryState = {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+};
+
+const MAX_HISTORY_ENTRIES = 100;
+
+const appendHistoryState = (
+  history: HistoryState[],
+  nextState: HistoryState
+): HistoryState[] => {
+  const nextHistory = [...history, nextState];
+  if (nextHistory.length <= MAX_HISTORY_ENTRIES) {
+    return nextHistory;
+  }
+  return nextHistory.slice(nextHistory.length - MAX_HISTORY_ENTRIES);
+};
+
 // Atoms for workflow state (now backed by database)
 export const nodesAtom = atom<WorkflowNode[]>([]);
 export const edgesAtom = atom<WorkflowEdge[]>([]);
@@ -207,7 +225,10 @@ export const addNodeAtom = atom(null, (get, set, node: WorkflowNode) => {
   const currentNodes = get(nodesAtom);
   const currentEdges = get(edgesAtom);
   const history = get(historyAtom);
-  set(historyAtom, [...history, { nodes: currentNodes, edges: currentEdges }]);
+  set(
+    historyAtom,
+    appendHistoryState(history, { nodes: currentNodes, edges: currentEdges })
+  );
   set(futureAtom, []);
 
   // Deselect all existing nodes and add new node as selected
@@ -345,7 +366,10 @@ export const deleteNodeAtom = atom(null, (get, set, nodeId: string) => {
   // Save current state to history before making changes
   const currentEdges = get(edgesAtom);
   const history = get(historyAtom);
-  set(historyAtom, [...history, { nodes: currentNodes, edges: currentEdges }]);
+  set(
+    historyAtom,
+    appendHistoryState(history, { nodes: currentNodes, edges: currentEdges })
+  );
   set(futureAtom, []);
 
   const newNodes = currentNodes.filter((node) => node.id !== nodeId);
@@ -372,7 +396,10 @@ export const deleteEdgeAtom = atom(null, (get, set, edgeId: string) => {
   const currentNodes = get(nodesAtom);
   const currentEdges = get(edgesAtom);
   const history = get(historyAtom);
-  set(historyAtom, [...history, { nodes: currentNodes, edges: currentEdges }]);
+  set(
+    historyAtom,
+    appendHistoryState(history, { nodes: currentNodes, edges: currentEdges })
+  );
   set(futureAtom, []);
 
   const newEdges = currentEdges.filter((edge) => edge.id !== edgeId);
@@ -394,7 +421,10 @@ export const deleteSelectedItemsAtom = atom(null, (get, set) => {
   const currentNodes = get(nodesAtom);
   const currentEdges = get(edgesAtom);
   const history = get(historyAtom);
-  set(historyAtom, [...history, { nodes: currentNodes, edges: currentEdges }]);
+  set(
+    historyAtom,
+    appendHistoryState(history, { nodes: currentNodes, edges: currentEdges })
+  );
   set(futureAtom, []);
 
   // Get all selected nodes, excluding trigger nodes
@@ -438,7 +468,10 @@ export const clearWorkflowAtom = atom(null, (get, set) => {
   const currentNodes = get(nodesAtom);
   const currentEdges = get(edgesAtom);
   const history = get(historyAtom);
-  set(historyAtom, [...history, { nodes: currentNodes, edges: currentEdges }]);
+  set(
+    historyAtom,
+    appendHistoryState(history, { nodes: currentNodes, edges: currentEdges })
+  );
   set(futureAtom, []);
 
   set(nodesAtom, []);
@@ -501,11 +534,6 @@ export const hasUnsavedChangesAtom = atom(false);
 export const workflowNotFoundAtom = atom(false);
 
 // Undo/Redo state
-type HistoryState = {
-  nodes: WorkflowNode[];
-  edges: WorkflowEdge[];
-};
-
 const historyAtom = atom<HistoryState[]>([]);
 const futureAtom = atom<HistoryState[]>([]);
 
@@ -521,7 +549,10 @@ export const undoAtom = atom(null, (get, set) => {
   const future = get(futureAtom);
 
   // Save current state to future
-  set(futureAtom, [...future, { nodes: currentNodes, edges: currentEdges }]);
+  set(
+    futureAtom,
+    appendHistoryState(future, { nodes: currentNodes, edges: currentEdges })
+  );
 
   // Pop from history and set as current
   const newHistory = [...history];
@@ -549,7 +580,10 @@ export const redoAtom = atom(null, (get, set) => {
   const history = get(historyAtom);
 
   // Save current state to history
-  set(historyAtom, [...history, { nodes: currentNodes, edges: currentEdges }]);
+  set(
+    historyAtom,
+    appendHistoryState(history, { nodes: currentNodes, edges: currentEdges })
+  );
 
   // Pop from future and set as current
   const newFuture = [...future];
@@ -578,3 +612,41 @@ export const clearNodeStatusesAtom = atom(null, (get, set) => {
   }));
   set(nodesAtom, newNodes);
 });
+
+export const updateNodeStatusesAtom = atom(
+  null,
+  (
+    get,
+    set,
+    statuses: Array<{
+      nodeId: string;
+      status: "idle" | "running" | "success" | "error";
+    }>
+  ) => {
+    const currentNodes = get(nodesAtom);
+    const statusByNodeId = new Map(
+      statuses.map(({ nodeId, status }) => [nodeId, status])
+    );
+
+    let hasChanges = false;
+    const updatedNodes = currentNodes.map((node) => {
+      const nextStatus = statusByNodeId.get(node.id);
+      if (!nextStatus || node.data.status === nextStatus) {
+        return node;
+      }
+
+      hasChanges = true;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          status: nextStatus,
+        },
+      };
+    });
+
+    if (hasChanges) {
+      set(nodesAtom, updatedNodes);
+    }
+  }
+);
