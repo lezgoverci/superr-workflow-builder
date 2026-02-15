@@ -46,6 +46,12 @@ export function resolveDatabaseUrl(
   return resolveDatabaseUrlFromKeys(RUNTIME_DATABASE_URL_ENV_KEYS, env)?.value;
 }
 
+export function resolveDatabaseUrlSource(
+  env: NodeJS.ProcessEnv = process.env
+): { key: RuntimeDatabaseUrlKey; value: string } | undefined {
+  return resolveDatabaseUrlFromKeys(RUNTIME_DATABASE_URL_ENV_KEYS, env);
+}
+
 export function resolveDatabaseUrlWithFallback(
   env: NodeJS.ProcessEnv = process.env
 ): string {
