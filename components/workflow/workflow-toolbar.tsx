@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Copy,
   Download,
+  FileJson,
   Globe,
   Loader2,
   Lock,
@@ -17,10 +18,11 @@ import {
   Settings2,
   Trash2,
   Undo2,
+  Upload,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -84,6 +86,92 @@ import { UserMenu } from "../workflows/user-menu";
 type WorkflowToolbarProps = {
   workflowId?: string;
 };
+
+type WorkflowJsonFile = {
+  version?: number;
+  exportedAt?: string;
+  name?: string;
+  description?: string;
+  visibility?: WorkflowVisibility;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+};
+
+type WorkflowImportPayload = Parameters<typeof api.workflow.update>[1] & {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+};
+
+function isWorkflowJsonFile(value: unknown): value is WorkflowJsonFile {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const payload = value as Record<string, unknown>;
+  const hasValidVisibility =
+    payload.visibility === undefined ||
+    payload.visibility === "private" ||
+    payload.visibility === "public";
+
+  return (
+    Array.isArray(payload.nodes) &&
+    Array.isArray(payload.edges) &&
+    hasValidVisibility
+  );
+}
+
+function sanitizeWorkflowFileName(name?: string): string {
+  const fallback = "workflow";
+  const sanitized = (name || fallback)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return sanitized || fallback;
+}
+
+async function parseWorkflowJsonImportFile(
+  file: File
+): Promise<WorkflowJsonFile> {
+  const fileContent = await file.text();
+  const parsed = JSON.parse(fileContent) as unknown;
+
+  if (!isWorkflowJsonFile(parsed)) {
+    throw new Error("Invalid workflow JSON format");
+  }
+
+  return parsed;
+}
+
+function buildWorkflowImportPayload(
+  parsed: WorkflowJsonFile
+): WorkflowImportPayload {
+  const payload: WorkflowImportPayload = {
+    nodes: parsed.nodes.map((node) => ({
+      ...node,
+      selected: false,
+    })),
+    edges: parsed.edges.map((edge) => ({
+      ...edge,
+      selected: false,
+    })),
+  };
+
+  const importedName =
+    typeof parsed.name === "string" ? parsed.name.trim() : "";
+  if (importedName) {
+    payload.name = importedName;
+  }
+  if (typeof parsed.description === "string") {
+    payload.description = parsed.description;
+  }
+  if (parsed.visibility === "private" || parsed.visibility === "public") {
+    payload.visibility = parsed.visibility;
+  }
+
+  return payload;
+}
 
 // Helper functions to reduce complexity
 function updateNodesStatus(
@@ -734,6 +822,8 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     setIsSaving,
     setHasUnsavedChanges,
     clearWorkflow,
+    setCurrentWorkflowName,
+    workflowVisibility,
     setWorkflowVisibility,
     setAllWorkflows,
     setIsDownloading,
@@ -864,6 +954,83 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     }
   };
 
+  const handleExportJson = () => {
+    if (nodes.length === 0) {
+      toast.error("Nothing to export");
+      return;
+    }
+
+    try {
+      const payload: WorkflowJsonFile = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        name: workflowName,
+        visibility: workflowVisibility,
+        nodes,
+        edges,
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${sanitizeWorkflowFileName(workflowName)}-workflow.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Workflow JSON exported");
+    } catch (error) {
+      console.error("Failed to export workflow JSON:", error);
+      toast.error("Failed to export workflow JSON");
+    }
+  };
+
+  const handleImportJson = async (file: File) => {
+    if (!currentWorkflowId) {
+      toast.error("Please save the workflow before importing");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const parsed = await parseWorkflowJsonImportFile(file);
+      const updatePayload = buildWorkflowImportPayload(parsed);
+
+      await api.workflow.update(currentWorkflowId, updatePayload);
+
+      setNodes(updatePayload.nodes);
+      setEdges(updatePayload.edges);
+      setSelectedNodeId(null);
+      setSelectedExecutionId(null);
+
+      if (updatePayload.name) {
+        setCurrentWorkflowName(updatePayload.name);
+      }
+
+      if (updatePayload.visibility) {
+        setWorkflowVisibility(updatePayload.visibility);
+      }
+
+      setHasUnsavedChanges(false);
+      toast.success("Workflow imported from JSON");
+    } catch (error) {
+      console.error("Failed to import workflow JSON:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to import workflow JSON"
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const loadWorkflows = async () => {
     try {
       const workflows = await api.workflow.getAll();
@@ -941,6 +1108,8 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     handleClearWorkflow,
     handleDeleteWorkflow,
     handleDownload,
+    handleExportJson,
+    handleImportJson,
     loadWorkflows,
     handleToggleVisibility,
     handleDuplicate,
@@ -1171,12 +1340,14 @@ function ToolbarActions({
       <ButtonGroup className="flex lg:hidden" orientation="vertical">
         <SaveButton handleSave={actions.handleSave} state={state} />
         <DownloadButton actions={actions} state={state} />
+        <JsonTransferButton actions={actions} state={state} />
       </ButtonGroup>
 
       {/* Save/Download - Desktop Horizontal */}
       <ButtonGroup className="hidden lg:flex" orientation="horizontal">
         <SaveButton handleSave={actions.handleSave} state={state} />
         <DownloadButton actions={actions} state={state} />
+        <JsonTransferButton actions={actions} state={state} />
       </ButtonGroup>
 
       {/* Visibility Toggle */}
@@ -1259,6 +1430,92 @@ function DownloadButton({
         <Download className="size-4" />
       )}
     </Button>
+  );
+}
+
+// JSON Import/Export Button Component
+function JsonTransferButton({
+  state,
+  actions,
+}: {
+  state: ReturnType<typeof useWorkflowState>;
+  actions: ReturnType<typeof useWorkflowActions>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const isWorkflowUnavailable =
+    !state.currentWorkflowId || state.isGenerating || state.isSaving;
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Allow selecting the same file again.
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      await actions.handleImportJson(file);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  return (
+    <>
+      <input
+        accept=".json,application/json"
+        className="hidden"
+        onChange={handleFileChange}
+        ref={fileInputRef}
+        type="file"
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            className="border hover:bg-black/5 disabled:opacity-100 dark:hover:bg-white/5 disabled:[&>svg]:text-muted-foreground"
+            disabled={isWorkflowUnavailable || isImporting}
+            size="icon"
+            title={
+              isImporting
+                ? "Importing workflow JSON..."
+                : "Import or export workflow JSON"
+            }
+            variant="secondary"
+          >
+            {isImporting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <FileJson className="size-4" />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            className="flex items-center gap-2"
+            disabled={state.nodes.length === 0}
+            onClick={() => actions.handleExportJson()}
+          >
+            <Download className="size-4" />
+            Export as JSON
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="flex items-center gap-2"
+            onClick={handleImportClick}
+          >
+            <Upload className="size-4" />
+            Import from JSON
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }
 
