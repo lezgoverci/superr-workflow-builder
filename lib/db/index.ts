@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { resolveDatabaseUrlWithFallback } from "./resolve-database-url";
 import {
   accounts,
   apiKeys,
@@ -28,8 +29,7 @@ const schema = {
   integrations,
 };
 
-const connectionString =
-  process.env.DATABASE_URL || "postgres://localhost:5432/workflow";
+const connectionString = resolveDatabaseUrlWithFallback();
 
 // For migrations
 export const migrationClient = postgres(connectionString, { max: 1 });

@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import type { Config } from "drizzle-kit";
+import { resolveDatabaseUrlWithFallback } from "./lib/db/resolve-database-url";
 
 config({ path: ".env.local" });
 
@@ -8,6 +9,6 @@ export default {
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL || "postgres://localhost:5432/workflow",
+    url: resolveDatabaseUrlWithFallback(),
   },
 } satisfies Config;
